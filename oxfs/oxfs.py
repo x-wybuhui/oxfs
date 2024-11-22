@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import getpass
@@ -30,13 +30,13 @@ class Oxfs(LoggingMixIn, Operations):
     You need to be able to login to remote host without entering a password.
     '''
 
-    def __init__(self, host, user, cache_path, remote_path, port=22, key_filename=None):
+    def __init__(self, host, user, passwd, cache_path, remote_path, port=22, key_filename=None):
         self.logger = logging.getLogger(__class__.__name__)
         self.sys = platform.system()
         self.host = host
         self.port = port
         self.user = user
-        self.password = None
+        self.password = passwd
         self.key_filename = key_filename
         self.cache_path = cache_path
         self.remote_path = os.path.normpath(remote_path)
@@ -98,8 +98,11 @@ class Oxfs(LoggingMixIn, Operations):
         client.load_system_host_keys()
 
         if self.key_filename:
-            prompt = '''{}'s password: '''.format(self.key_filename)
-            return client, self.try_connect(client, self.getpass(prompt), True)
+            if self.password:
+                return client, self.try_connect(client, self.password, True)
+            else:
+                prompt = '''{}'s password: '''.format(self.key_filename)
+                return client, self.try_connect(client, self.getpass(prompt), True)
 
         if not self.password:
             sftp = self.try_connect(client, None, False)
@@ -369,6 +372,7 @@ class Config:
         self.auto_cache = False
 
         self.key_filename = None
+        self.passwd = None
         self.ssh_port = 22
         self.cache_timeout = 30
         self.parallel = multiprocessing.cpu_count() * 4
@@ -406,6 +410,9 @@ class Config:
         if args.key_filename:
             self.key_filename = os.path.expanduser(args.key_filename)
 
+        if args.passwd:
+            self.passwd = args.passwd
+
         if args.cache_timeout:
             self.cache_timeout = args.cache_timeout
 
@@ -431,6 +438,8 @@ def main():
                         help='ssh host (example: root@127.0.0.1)')
     parser.add_argument('--ssh-key', dest='key_filename',
                         help='ssh key filename')
+    parser.add_argument('--pass', dest='passwd',
+                        help='ssh key pass')
     parser.add_argument('--ssh-port', dest='ssh_port', type=int,
                         help='ssh port (defaut: 22)')
     parser.add_argument('--cache-timeout', dest='cache_timeout', type=int,
@@ -461,6 +470,7 @@ def main():
 
     fs = Oxfs(host=config.host,
               user=config.user,
+              passwd=config.passwd,
               cache_path=config.cache_path,
               remote_path=config.remote_path,
               port=config.ssh_port,
